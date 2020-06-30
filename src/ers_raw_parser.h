@@ -16,15 +16,21 @@ typedef struct ERS_Raw_Parser_Data_Patch {
 typedef struct {
 	char missionid[17];
 	double lambda;
+	double ra_ph_off; //Range pulse phase offset [rad]
+	double kr; //Range chirp slope [Hz/s]
+	double ka; //Azimuth chirp slope [Hz/s]
 	double fs;
 	double tau;
 	double prf;
 	double rgd;
 	double velocity;
 	double range_pixel_spacing;
+	double C; //lightspeed
+	double r0;
+	double az_beam_width; //lambda/L [rad]
 
 	int n_valid_samples;
-	int fft_len;
+	int ra_fft_len;
 	int fft_lines;
 } ERS_Raw_Parser_Params;
 

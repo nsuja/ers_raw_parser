@@ -3,6 +3,7 @@ LD=gcc
 INSTALL=install
 
 
+INSTALL_HEADERS_PATH=/usr/include/
 INSTALL_LIB_PATH=/usr/lib/
 
 SRC_PATH=./src/
@@ -30,6 +31,7 @@ clean:
 	- $(RM) $(OUTPUT) $(OBJECTS) *~ $(SRC_PATH)/*~
 
 install:
+	- $(INSTALL) $(HEADERS) $(INSTALL_HEADERS_PATH)
 	- $(INSTALL) "$(OUTPUT_PATH)/$(OUTPUT)" $(INSTALL_LIB_PATH)
 
 $(OUTPUT): $(OUTPUT_PATH) $(OBJECTS)

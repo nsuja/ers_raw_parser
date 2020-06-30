@@ -17,6 +17,10 @@
 #define LEADER_FILE_DATASET_MISSION_ID_SIZE (16)
 #define LEADER_FILE_DATASET_RADAR_WAVELENGTH_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+500)
 #define LEADER_FILE_DATASET_RADAR_WAVELENGTH_SIZE (16)
+#define LEADER_FILE_DATASET_RANGE_CHIRP_SLOPE_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+550)
+#define LEADER_FILE_DATASET_RANGE_CHIRP_SLOPE_SIZE (16)
+#define LEADER_FILE_DATASET_RANGE_CHIRP_PHASE_OFFSET_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+615)
+#define LEADER_FILE_DATASET_RANGE_CHIRP_PHASE_OFFSET_SIZE (16)
 #define LEADER_FILE_DATASET_RANGE_SAMPLING_FREC_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+710)
 #define LEADER_FILE_DATASET_RANGE_SAMPLING_FREC_SIZE (16)
 #define LEADER_FILE_DATASET_RANGE_PULSE_LENGTH_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+742)
@@ -25,6 +29,8 @@
 #define LEADER_FILE_DATASET_PRF_SIZE (16)
 #define LEADER_FILE_DATASET_AZIMUTH_BEAM_WIDTH_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+966)
 #define LEADER_FILE_DATASET_AZIMUTH_BEAM_WIDTH_SIZE (16)
+#define LEADER_FILE_DATASET_RANGE_BANDWIDTH_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+1254)
+#define LEADER_FILE_DATASET_RANGE_BANDWIDTH_SIZE (16)
 #define LEADER_FILE_DATASET_RGD_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+1766)
 #define LEADER_FILE_DATASET_RGD_SIZE (16)
 #define LEADER_FILE_DATA_PROCESSOR_SPECIFIC_LOCAL_SEGMENT_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+1886)
@@ -132,15 +138,17 @@ int log_ers_params(ERS_Raw_Parser_Params *par)
 	}
 
 	fprintf(stdout, "Mission id: %s\n", par->missionid);
-	fprintf(stdout, "Wavelength: %f\n", par->lambda);
-	fprintf(stdout, "Sampling frequency: %f\n", par->fs);
-	fprintf(stdout, "Range pulse width: %f\n", par->tau);
-	fprintf(stdout, "Pulse repetition frequency: %f\n", par->prf);
-	fprintf(stdout, "Range gate delay: %f\n", par->rgd);
+	fprintf(stdout, "Wavelength: %f[m]\n", par->lambda);
+	fprintf(stdout, "Range chirp slope: %f [Hz/s]\n", par->kr);
+	fprintf(stdout, "Range pulse phase offset: %f [rad]\n", par->ra_ph_off);
+	fprintf(stdout, "Sampling frequency: %f[Hz]\n", par->fs);
+	fprintf(stdout, "Range pulse width: %f[s]\n", par->tau);
+	fprintf(stdout, "Pulse repetition frequency: %f[Hz]\n", par->prf);
+	fprintf(stdout, "Range gate delay: %f[s]\n", par->rgd);
 
-	fprintf(stdout, "Velocity: %f\n", par->velocity);
+	fprintf(stdout, "Velocity: %f[m/s]\n", par->velocity);
 	fprintf(stdout, "n_samples: %d\n", par->n_valid_samples);
-	fprintf(stdout, "FFT length: %d\n", par->fft_len);
+	fprintf(stdout, "FFT length: %d\n", par->ra_fft_len);
 	fprintf(stdout, "FFT lines: %d\n", par->fft_lines);
 
 	return 0;
@@ -158,8 +166,12 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	double fs;
 	char tau_str[LEADER_FILE_DATASET_RANGE_PULSE_LENGTH_SIZE+1] = {0};
 	double tau;
+	char ra_ph_off_str[LEADER_FILE_DATASET_RANGE_CHIRP_PHASE_OFFSET_SIZE+1] = {0};
+	double ra_ph_off;
 	char prf_str[LEADER_FILE_DATASET_PRF_SIZE+1] = {0};
 	double prf;
+	char ra_w_str[LEADER_FILE_DATASET_RANGE_BANDWIDTH_SIZE+1] = {0};
+	double ra_w;
 	char rgd_str[LEADER_FILE_DATASET_RGD_SIZE+1] = {0};
 	double rgd;
 	char v_x_str[LEADER_FILE_DATASET_VELOCITY_X_SIZE+1] = {0};
@@ -172,14 +184,14 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	double v;
 	double effective_v;
 	int n_valid_samples;
-	int fft_len;
+	int ra_fft_len;
 
 	if(!ctx) {
-		fprintf(stderr, "%s::Invalid arguments ctx %p", __func__, ctx);
+		fprintf(stderr, "%s::Invalid arguments ctx %p\n", __func__, ctx);
 		return -1;
 	}
 	if(!ctx->initialized) {
-		fprintf(stderr, "%s::Invalid context! ctx %p", __func__, ctx);
+		fprintf(stderr, "%s::Invalid context! ctx %p\n", __func__, ctx);
 		return -1;
 	}
 
@@ -199,19 +211,23 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 
 	GET_VAL(LEADER_FILE_DATASET_MISSION_ID_POS, LEADER_FILE_DATASET_MISSION_ID_SIZE, missionid, 0);
 	GET_VAL(LEADER_FILE_DATASET_RADAR_WAVELENGTH_POS, LEADER_FILE_DATASET_RADAR_WAVELENGTH_SIZE, lambda_str, 0);
+	GET_VAL(LEADER_FILE_DATASET_RANGE_CHIRP_PHASE_OFFSET_POS, LEADER_FILE_DATASET_RANGE_CHIRP_PHASE_OFFSET_SIZE, ra_ph_off_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RANGE_SAMPLING_FREC_POS, LEADER_FILE_DATASET_RANGE_SAMPLING_FREC_SIZE, fs_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RANGE_PULSE_LENGTH_POS, LEADER_FILE_DATASET_RANGE_PULSE_LENGTH_SIZE, tau_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_PRF_POS, LEADER_FILE_DATASET_PRF_SIZE, prf_str, 0);
+	GET_VAL(LEADER_FILE_DATASET_RANGE_BANDWIDTH_POS, LEADER_FILE_DATASET_RANGE_BANDWIDTH_SIZE, ra_w_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RGD_POS, LEADER_FILE_DATASET_RGD_SIZE, rgd_str, 0);
-	GET_VAL(LEADER_FILE_DATASET_VELOCITY_X_POS, LEADER_FILE_DATASET_VELOCITY_X_SIZE, v_x_str, 0);
-	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Y_POS, LEADER_FILE_DATASET_VELOCITY_Y_SIZE, v_y_str, 0);
-	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Z_POS, LEADER_FILE_DATASET_VELOCITY_Z_SIZE, v_z_str, 0);
+	GET_VAL(LEADER_FILE_DATASET_VELOCITY_X_POS, LEADER_FILE_DATASET_VELOCITY_X_SIZE, v_x_str, 1);
+	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Y_POS, LEADER_FILE_DATASET_VELOCITY_Y_SIZE, v_y_str, 1);
+	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Z_POS, LEADER_FILE_DATASET_VELOCITY_Z_SIZE, v_z_str, 1);
 
 	lambda = strtod(lambda_str, NULL);
-	fs = strtod(fs_str, NULL);
-	tau = strtod(tau_str, NULL);
+	ra_ph_off = strtod(ra_ph_off_str, NULL);
+	fs = strtod(fs_str, NULL) *1E6;
+	tau = strtod(tau_str, NULL) * 1E-6;
 	prf = strtod(prf_str, NULL);
-	rgd = strtod(rgd_str, NULL);
+	ra_w = strtod(ra_w_str, NULL) * 1E6;
+	rgd = strtod(rgd_str, NULL) * 1E-3;
 	v_x = strtod(v_x_str, NULL);
 	v_y = strtod(v_y_str, NULL);
 	v_z = strtod(v_z_str, NULL);
@@ -221,25 +237,42 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	effective_v = v*sqrt(EARTH_RADIUS/(EARTH_RADIUS+ERS_PLATFORM_ALTITUDE));
 
 	//https://igppweb.ucsd.edu/~fialko/insar/03_ortiz_zebker.pdf
-	double az_pulse_spacing = effective_v/prf;
+	double az_pulse_spacing = effective_v/prf; //az_tau
 	double az_beam_width = lambda/ERS_ANTENNA_LENGTH; //[rad]
 	double az_beam_width_gnd = ERS_PLATFORM_ALTITUDE*az_beam_width; //[m] @ground
 	int pulses_for_full_aperture = ceil(az_beam_width_gnd/az_pulse_spacing); //N
 	int fft_lines = pow(2, ceil(log((double)pulses_for_full_aperture)/log(2.0))); //next power of 2 for fft
 
+	double kr = ra_w/tau; //ra_w[MHz], tau[us]
+
 	n_valid_samples = (DATA_FILE_RAW_SIGNAL_RECORD_SIZE - DATA_FILE_RAW_SIGNAL_HEADER_SIZE)/2 - round(tau*fs); //minus unambiguos range
-	fft_len = pow(2, ceil(log((double)n_valid_samples)/log(2.0))); //next power of 2 for fft
+	ra_fft_len = pow(2, ceil(log((double)n_valid_samples)/log(2.0))); //next power of 2 for fft
 
 	snprintf(params.missionid, LEADER_FILE_DATASET_MISSION_ID_SIZE, "%s", missionid);
 	params.lambda = lambda;
+	params.ra_ph_off = ra_ph_off;
+	params.kr = kr;
 	params.fs = fs;
 	params.tau = tau;
 	params.prf = prf;
 	params.rgd = rgd;
 	params.velocity = effective_v;
 	params.n_valid_samples = n_valid_samples;
-	params.fft_len = fft_len;
+	params.ra_fft_len = ra_fft_len;
 	params.fft_lines = fft_lines;
+	params.C = LIGHTSPEED;
+	params.r0 = LIGHTSPEED * params.rgd/2;
+	params.az_beam_width = az_beam_width;
+
+	//To test
+	//params.lambda = 0.0566;
+	//params.ra_ph_off = 0;
+	//params.kr = 4.19E11;
+	//params.fs = 18962468;
+	//params.tau = 37.1E-6;
+	//params.prf = 1679.9;
+	//params.rgd = 0.0055;
+	//params.velocity = 7.1277E3;
 
 	if(out) {
 		memcpy(out, &params, sizeof(ERS_Raw_Parser_Params));
