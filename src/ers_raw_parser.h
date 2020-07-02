@@ -46,7 +46,7 @@ void ers_raw_parser_free(ERS_Raw_Parser_Ctx *ctx);
 
 int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_Params *out);
 
-int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_Data_Patch **data);
+int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_Data_Patch **data, int start_line);
 
 void ers_raw_parser_data_patch_free(ERS_Raw_Parser_Data_Patch *data);
 

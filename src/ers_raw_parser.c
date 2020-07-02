@@ -284,7 +284,7 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	return 0;
 }
 
-int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_Data_Patch **data)
+int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_Data_Patch **data, int start_line)
 {
 	int ret, i, j;
 	int need_bytes;
@@ -311,6 +311,15 @@ int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parse
 	if(!buff) {
 		fprintf(stderr, "%s:: calloc(%d) errno(%d):%s\n", __func__, need_bytes, errno, strerror(errno));
 		return -1;
+	}
+
+	if(start_line) {
+		ret = lseek(ctx->fd_raw, DATA_FILE_RAW_SIGNAL_RECORD_SIZE + DATA_FILE_RAW_SIGNAL_RECORD_SIZE*start_line, SEEK_SET);
+		if(ret != DATA_FILE_RAW_SIGNAL_RECORD_SIZE*start_line) {
+			fprintf(stderr, "%s:: seek() ret %d fd %d errno(%d):%s\n", __func__, ret, ctx->fd_raw, errno, strerror(errno));
+			return -1;
+		}
+		ctx->fd_raw_pos = ret;
 	}
 
 	ret = read(ctx->fd_raw, buff, need_bytes);
