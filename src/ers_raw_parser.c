@@ -297,7 +297,7 @@ int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parse
 		return -1;
 	}
 
-	if(!ctx->fd_raw_pos) {
+	if(!ctx->fd_raw_pos && !start_line) {
 		ret = lseek(ctx->fd_raw, DATA_FILE_RAW_SIGNAL_RECORD_SIZE, SEEK_SET);
 		if(ret != DATA_FILE_RAW_SIGNAL_RECORD_SIZE) {
 			fprintf(stderr, "%s:: seek() ret %d fd %d errno(%d):%s\n", __func__, ret, ctx->fd_raw, errno, strerror(errno));
@@ -315,7 +315,7 @@ int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parse
 
 	if(start_line) {
 		ret = lseek(ctx->fd_raw, DATA_FILE_RAW_SIGNAL_RECORD_SIZE + DATA_FILE_RAW_SIGNAL_RECORD_SIZE*start_line, SEEK_SET);
-		if(ret != DATA_FILE_RAW_SIGNAL_RECORD_SIZE*start_line) {
+		if(ret != (DATA_FILE_RAW_SIGNAL_RECORD_SIZE+DATA_FILE_RAW_SIGNAL_RECORD_SIZE*start_line)) {
 			fprintf(stderr, "%s:: seek() ret %d fd %d errno(%d):%s\n", __func__, ret, ctx->fd_raw, errno, strerror(errno));
 			return -1;
 		}
@@ -324,9 +324,14 @@ int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parse
 
 	ret = read(ctx->fd_raw, buff, need_bytes);
 	if(ret != need_bytes) { //FIXME No handle for incomplete read, everything is an error
-		fprintf(stderr, "%s:: read(%d, %d) ret %d errno(%d):%s\n", __func__, ctx->fd_raw, need_bytes, ret, errno, strerror(errno));
 		free(buff);
-		return -1;
+		if(ret < 0) {
+			fprintf(stderr, "%s:: read(%d, %d) ret %d errno(%d):%s\n", __func__, ctx->fd_raw, need_bytes, ret, errno, strerror(errno));
+			return -1;
+		} else {
+			fprintf(stderr, "%s:: Incomplete read()! (%d < %d) Probably EOF\n", __func__, ret, need_bytes);
+			return 1;
+		}
 	}
 	ctx->fd_raw_pos += ret;
 	ctx->az_pos += ctx->out_par.fft_lines;

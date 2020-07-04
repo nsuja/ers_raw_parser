@@ -46,6 +46,12 @@ void ers_raw_parser_free(ERS_Raw_Parser_Ctx *ctx);
 
 int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_Params *out);
 
+/**
+ * Get raw data patch
+ * @param[in] start_line: Line from where to read, not counting first DATA_FILE_RAW_SIGNAL_RECORD_SIZE bytes
+ * @param[out] data: Output data patch, must be freed with ers_raw_parser_data_patch_free()
+ * @return 0 if OK, < 0 on error, 1 Incomplete read (EOF)
+ */
 int ers_raw_parser_get_raw_data_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_Data_Patch **data, int start_line);
 
 void ers_raw_parser_data_patch_free(ERS_Raw_Parser_Data_Patch *data);
