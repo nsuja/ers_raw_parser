@@ -15,7 +15,8 @@ typedef struct ERS_Raw_Parser_Data_Patch {
 
 typedef struct {
 	char missionid[17];
-	double lambda;
+	double theta; //Incidence angle [degrees]
+	double lambda; //wavelength [m]
 	double ra_ph_off; //Range pulse phase offset [rad]
 	double kr; //Range chirp slope [Hz/s]
 	double ka; //Azimuth chirp slope [Hz/s]
@@ -25,10 +26,12 @@ typedef struct {
 	double rgd;
 	double velocity;
 	double range_pixel_spacing;
-	double C; //lightspeed
-	double r0;
+	double C; //lightspeed [m/s]
+	double r0; //slant range [m]
 	double az_beam_width; //lambda/L [rad]
 
+	double ground_az_res; //Theoretical round azimuth resolution [m] (L/2)
+	double ground_ra_res; //Ground range resolution [m]
 	int n_valid_samples;
 	int ra_fft_len;
 	int fft_lines;

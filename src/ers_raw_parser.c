@@ -15,6 +15,8 @@
 #define LEADER_FILE_DESCRIPTOR_RECORD_SIZE (720)
 #define LEADER_FILE_DATASET_MISSION_ID_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+396)
 #define LEADER_FILE_DATASET_MISSION_ID_SIZE (16)
+#define LEADER_FILE_DATASET_RADAR_INCIDENCE_ANGLE_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+484)
+#define LEADER_FILE_DATASET_RADAR_INCIDENCE_ANGLE_SIZE (8)
 #define LEADER_FILE_DATASET_RADAR_WAVELENGTH_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+500)
 #define LEADER_FILE_DATASET_RADAR_WAVELENGTH_SIZE (16)
 #define LEADER_FILE_DATASET_RANGE_CHIRP_SLOPE_POS (LEADER_FILE_DESCRIPTOR_RECORD_SIZE+550)
@@ -145,6 +147,8 @@ int log_ers_params(ERS_Raw_Parser_Params *par)
 	fprintf(stdout, "Range pulse width: %f[s]\n", par->tau);
 	fprintf(stdout, "Pulse repetition frequency: %f[Hz]\n", par->prf);
 	fprintf(stdout, "Range gate delay: %f[s]\n", par->rgd);
+	fprintf(stdout, "Ground range resolution: %f[m]\n", par->ground_ra_res);
+	fprintf(stdout, "Ground azimuth resolution: %f[m]\n", par->ground_az_res);
 
 	fprintf(stdout, "Velocity: %f[m/s]\n", par->velocity);
 	fprintf(stdout, "n_samples: %d\n", par->n_valid_samples);
@@ -160,6 +164,8 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	ERS_Raw_Parser_Params params;
 
 	char missionid[LEADER_FILE_DATASET_MISSION_ID_SIZE+1] = {0};
+	char theta_str[LEADER_FILE_DATASET_RADAR_WAVELENGTH_SIZE+1] = {0};
+	double theta;
 	char lambda_str[LEADER_FILE_DATASET_RADAR_WAVELENGTH_SIZE+1] = {0};
 	double lambda;
 	char fs_str[LEADER_FILE_DATASET_RANGE_SAMPLING_FREC_SIZE+1] = {0};
@@ -210,6 +216,7 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 		fprintf(stdout, "%s: %s\n", #outname, outname);
 
 	GET_VAL(LEADER_FILE_DATASET_MISSION_ID_POS, LEADER_FILE_DATASET_MISSION_ID_SIZE, missionid, 0);
+	GET_VAL(LEADER_FILE_DATASET_RADAR_INCIDENCE_ANGLE_POS, LEADER_FILE_DATASET_RADAR_INCIDENCE_ANGLE_SIZE, theta_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RADAR_WAVELENGTH_POS, LEADER_FILE_DATASET_RADAR_WAVELENGTH_SIZE, lambda_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RANGE_CHIRP_PHASE_OFFSET_POS, LEADER_FILE_DATASET_RANGE_CHIRP_PHASE_OFFSET_SIZE, ra_ph_off_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RANGE_SAMPLING_FREC_POS, LEADER_FILE_DATASET_RANGE_SAMPLING_FREC_SIZE, fs_str, 0);
@@ -217,10 +224,11 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	GET_VAL(LEADER_FILE_DATASET_PRF_POS, LEADER_FILE_DATASET_PRF_SIZE, prf_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RANGE_BANDWIDTH_POS, LEADER_FILE_DATASET_RANGE_BANDWIDTH_SIZE, ra_w_str, 0);
 	GET_VAL(LEADER_FILE_DATASET_RGD_POS, LEADER_FILE_DATASET_RGD_SIZE, rgd_str, 0);
-	GET_VAL(LEADER_FILE_DATASET_VELOCITY_X_POS, LEADER_FILE_DATASET_VELOCITY_X_SIZE, v_x_str, 1);
-	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Y_POS, LEADER_FILE_DATASET_VELOCITY_Y_SIZE, v_y_str, 1);
-	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Z_POS, LEADER_FILE_DATASET_VELOCITY_Z_SIZE, v_z_str, 1);
+	GET_VAL(LEADER_FILE_DATASET_VELOCITY_X_POS, LEADER_FILE_DATASET_VELOCITY_X_SIZE, v_x_str, 0);
+	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Y_POS, LEADER_FILE_DATASET_VELOCITY_Y_SIZE, v_y_str, 0);
+	GET_VAL(LEADER_FILE_DATASET_VELOCITY_Z_POS, LEADER_FILE_DATASET_VELOCITY_Z_SIZE, v_z_str, 0);
 
+	theta = strtod(theta_str, NULL);
 	lambda = strtod(lambda_str, NULL);
 	ra_ph_off = strtod(ra_ph_off_str, NULL);
 	fs = strtod(fs_str, NULL) *1E6;
@@ -242,6 +250,7 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	double az_beam_width_gnd = ERS_PLATFORM_ALTITUDE*az_beam_width; //[m] @ground
 	int pulses_for_full_aperture = ceil(az_beam_width_gnd/az_pulse_spacing); //N
 	int fft_lines = pow(2, ceil(log((double)pulses_for_full_aperture)/log(2.0))); //next power of 2 for fft
+	double  ground_range_res = LIGHTSPEED/(2*ra_w*sin(theta*M_PI/180.0));
 
 	double kr = ra_w/tau; //ra_w[MHz], tau[us]
 
@@ -249,6 +258,7 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	ra_fft_len = pow(2, ceil(log((double)n_valid_samples)/log(2.0))); //next power of 2 for fft
 
 	snprintf(params.missionid, LEADER_FILE_DATASET_MISSION_ID_SIZE, "%s", missionid);
+	params.theta = theta;
 	params.lambda = lambda;
 	params.ra_ph_off = ra_ph_off;
 	params.kr = kr;
@@ -263,6 +273,8 @@ int ers_raw_parser_get_params_from_file(ERS_Raw_Parser_Ctx *ctx, ERS_Raw_Parser_
 	params.C = LIGHTSPEED;
 	params.r0 = LIGHTSPEED * params.rgd/2;
 	params.az_beam_width = az_beam_width;
+	params.ground_ra_res = ground_range_res;
+	params.ground_az_res = ERS_ANTENNA_LENGTH/2;
 
 	//To test
 	//params.lambda = 0.0566;
